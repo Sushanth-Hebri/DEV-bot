@@ -18,9 +18,7 @@ CORS(app)
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # Set the logging level to INFO
 
-# Load cities from the text file
-with open("cities.txt", "r") as file:
-    cities = [city.strip().lower() for city in file.readlines()]
+
 
 class ChatBot():
     def __init__(self, name, hf_token):
