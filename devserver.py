@@ -7,7 +7,7 @@ from flask_cors import CORS
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/query": {"origins": "*"}})  # Allow requests from all origins
+CORS(app)  # Enable CORS for all routes in the app
 
 # Set Hugging Face token from environment variable
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -47,7 +47,9 @@ def handle_query():
             res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
         else:
             res = ai.text_to_text(query)
-        return jsonify({"response": res})
+        response = jsonify({"response": res})
+        response.headers.add("Access-Control-Allow-Origin", "*")  # Set the CORS header for all origins
+        return response
     else:
         return jsonify({"error": "No query provided"})
 
