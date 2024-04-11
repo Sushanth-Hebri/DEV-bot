@@ -3,11 +3,11 @@ import datetime
 import numpy as np
 from flask import Flask, request, jsonify
 from transformers import Conversation, pipeline
-from flask_cors import CORS  # Import CORS from flask_cors
+from flask_cors import CORS
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes in the app
+CORS(app, resources={r"/query": {"origins": "*"}})  # Allow requests from all origins
 
 # Set Hugging Face token from environment variable
 HF_TOKEN = os.getenv("HF_TOKEN")
