@@ -15,9 +15,6 @@ class ChatBot():
         print("----- Starting up", name, "-----")
         self.name = name
 
-    def get_user_input(self):
-        self.text = request.json.get("query")
-
     @staticmethod
     def text_to_text(input_text):
         nlp = pipeline("conversational", model="microsoft/DialoGPT-medium", token=HF_TOKEN)
@@ -33,23 +30,24 @@ class ChatBot():
     def action_time():
         return datetime.datetime.now().time().strftime('%H:%M')
 
-@app.route("/", methods=["POST"])
-def chatbot():
-    ai = ChatBot(name="dev")
-    ai.get_user_input()
-
-    if ai.wake_up(ai.text):
-        res = "Hello I am Dave the AI, what can I do for you?"
-    elif "time" in ai.text:
-        res = ai.action_time()
-    elif any(i in ai.text for i in ["thank", "thanks"]):
-        res = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
-    elif any(i in ai.text for i in ["exit", "close"]):
-        res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
+@app.route("/query", methods=["POST"])
+def handle_query():
+    query = request.json.get("query")
+    if query:
+        ai = ChatBot(name="dev")
+        if ai.wake_up(query):
+            res = "Hello I am Dave the AI, what can I do for you?"
+        elif "time" in query:
+            res = ai.action_time()
+        elif any(i in query for i in ["thank", "thanks"]):
+            res = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
+        elif any(i in query for i in ["exit", "close"]):
+            res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
+        else:
+            res = ai.text_to_text(query)
+        return jsonify({"response": res})
     else:
-        res = ai.text_to_text(ai.text)
-
-    return jsonify({"response": res})
+        return jsonify({"error": "No query provided"})
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
