@@ -1,47 +1,30 @@
-import asyncio
-import json
-import logging
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from waitress import serve
-import requests
-from bs4 import BeautifulSoup
-import websockets
-import transformers
-import numpy as np
-import datetime
 import os
+import datetime
+import numpy as np
+from flask import Flask, request, jsonify
+from transformers import Conversation, pipeline
 
+# Initialize Flask app
 app = Flask(__name__)
-CORS(app)
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)  # Set the logging level to INFO
-
-
+# Set Hugging Face token from environment variable
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 class ChatBot():
-    def __init__(self, name, hf_token):
+    def __init__(self, name):
         print("----- Starting up", name, "-----")
         self.name = name
-        self.hf_token = hf_token
 
     def get_user_input(self):
-        self.text = input("You --> ")
+        self.text = request.json.get("query")
 
-    def text_to_text(self, input_text):
-        headers = {
-            "Authorization": f"Bearer {self.hf_token}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "inputs": input_text,
-            "options": {
-                "use_cache": False
-            }
-        }
-        response = requests.post("https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium", headers=headers, data=json.dumps(data))
-        return response.json()
+    @staticmethod
+    def text_to_text(input_text):
+        nlp = pipeline("conversational", model="microsoft/DialoGPT-medium", token=HF_TOKEN)
+        chat = nlp(Conversation(input_text), pad_token_id=50256)
+        response = str(chat)
+        response = response[response.find("bot >> ") + 6:].strip()
+        return response
 
     def wake_up(self, text):
         return True if self.name in text.lower() else False
@@ -50,48 +33,23 @@ class ChatBot():
     def action_time():
         return datetime.datetime.now().time().strftime('%H:%M')
 
-chatbot = ChatBot(name="Dave", hf_token=os.getenv("HF_TOKEN"))
-
-async def handle_client(websocket, path):
-    async for message in websocket:
-        data = json.loads(message)
-        query = data.get('query')  # Assuming the user sends the query in the 'query' field
-        response = {}  # Initialize an empty dictionary for the response data under "response" key
-        if query:
-            if chatbot.wake_up(query):
-                response = "Hello, I am Dave the AI. How can I assist you?"
-            elif "time" in query:
-                response = chatbot.action_time()
-            elif any(i in query for i in ["thank", "thanks"]):
-                response = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
-            elif any(i in query for i in ["exit", "close"]):
-                response = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
-            else:
-                response = chatbot.text_to_text(query)
-
-        await websocket.send(json.dumps({"response": response}))  # Send response data as JSON
-
 @app.route("/", methods=["POST"])
-def chatbot_http():
-    data = request.json
-    query = data.get('query')  # Assuming the user sends the query in the 'query' field
-    response = {}  # Initialize an empty dictionary for the response data under "response" key
-    if query:
-        async def send_to_websocket():
-            async with websockets.connect('ws://localhost:8765') as websocket:
-                await websocket.send(json.dumps({"query": query}))
-                response = await websocket.recv()
-                return response
+def chatbot():
+    ai = ChatBot(name="dev")
+    ai.get_user_input()
 
-        response = asyncio.run(send_to_websocket())
+    if ai.wake_up(ai.text):
+        res = "Hello I am Dave the AI, what can I do for you?"
+    elif "time" in ai.text:
+        res = ai.action_time()
+    elif any(i in ai.text for i in ["thank", "thanks"]):
+        res = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
+    elif any(i in ai.text for i in ["exit", "close"]):
+        res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
     else:
-        response = "No query provided"
-    return jsonify({"response": response})  # Return response data as JSON under "response" key
+        res = ai.text_to_text(ai.text)
 
-async def start_websocket_server():
-    server = await websockets.serve(handle_client, "localhost", 8765)
-    await server.wait_closed()
+    return jsonify({"response": res})
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(start_websocket_server())
-    serve(app, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000)
