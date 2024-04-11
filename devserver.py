@@ -1,16 +1,12 @@
-from flask import Flask, request, jsonify
-from transformers import Conversation, pipeline
-from flask_cors import CORS
 import os
 import datetime
 import numpy as np
+from flask import Flask, request, jsonify
+from transformers import Conversation, pipeline  # Import transformers module
+from flask_cors import CORS
 
-# Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes in the app
-
-# Set Hugging Face token from environment variable
-HF_TOKEN = os.getenv("HF_TOKEN")
 
 class ChatBot():
     def __init__(self, name):
@@ -19,7 +15,7 @@ class ChatBot():
 
     @staticmethod
     def text_to_text(input_text):
-        nlp = pipeline("conversational", model="microsoft/DialoGPT-medium", token=HF_TOKEN)
+        nlp = pipeline("conversational", model="microsoft/DialoGPT-medium")
         chat = nlp(Conversation(input_text), pad_token_id=50256)
         response = str(chat)
         response = response[response.find("bot >> ") + 6:].strip()
@@ -32,33 +28,35 @@ class ChatBot():
     def action_time():
         return datetime.datetime.now().time().strftime('%H:%M')
 
-@app.route("/query", methods=["OPTIONS", "POST"])
-def handle_query():
+@app.route("/request", methods=["POST", "OPTIONS"])
+def handle_request():
     if request.method == "OPTIONS":
-        response = jsonify({"message": "Preflight request handled"})
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Methods", "POST")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        return response
-    elif request.method == "POST":
-        query = request.json.get("query")
+        # Handle preflight request
+        response = app.make_default_options_response()
+    else:
+        data = request.get_json()
+        query = data.get("query")
         if query:
             ai = ChatBot(name="dev")
             if ai.wake_up(query):
-                res = "Hello I am Dave the AI, what can I do for you?"
+                res = "Hello, I am your AI assistant. How can I help you?"
             elif "time" in query:
                 res = ai.action_time()
             elif any(i in query for i in ["thank", "thanks"]):
-                res = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
+                res = np.random.choice(["You're welcome!", "Anytime!", "No problem!", "Cool!", "I'm here if you need me!", "Mention not"])
             elif any(i in query for i in ["exit", "close"]):
-                res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
+                res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "Peace out!"])
             else:
                 res = ai.text_to_text(query)
             response = jsonify({"response": res})
-            response.headers.add("Access-Control-Allow-Origin", "*")  # Set the CORS header for all origins
-            return response
         else:
-            return jsonify({"error": "No query provided"})
+            response = jsonify({"error": "No query provided"})
+
+    # Set CORS headers
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    return response
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
