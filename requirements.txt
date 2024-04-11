@@ -7,3 +7,4 @@ websockets
 transformers
 numpy
 tensorflow>=2.0
+tf-keras
