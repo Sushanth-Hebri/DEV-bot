@@ -32,26 +32,33 @@ class ChatBot():
     def action_time():
         return datetime.datetime.now().time().strftime('%H:%M')
 
-@app.route("/query", methods=["POST"])
+@app.route("/query", methods=["OPTIONS", "POST"])
 def handle_query():
-    query = request.json.get("query")
-    if query:
-        ai = ChatBot(name="dev")
-        if ai.wake_up(query):
-            res = "Hello I am Dave the AI, what can I do for you?"
-        elif "time" in query:
-            res = ai.action_time()
-        elif any(i in query for i in ["thank", "thanks"]):
-            res = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
-        elif any(i in query for i in ["exit", "close"]):
-            res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
-        else:
-            res = ai.text_to_text(query)
-        response = jsonify({"response": res})
-        response.headers.add("Access-Control-Allow-Origin", "*")  # Set the CORS header for all origins
+    if request.method == "OPTIONS":
+        response = jsonify({"message": "Preflight request handled"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Methods", "POST")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
         return response
-    else:
-        return jsonify({"error": "No query provided"})
+    elif request.method == "POST":
+        query = request.json.get("query")
+        if query:
+            ai = ChatBot(name="dev")
+            if ai.wake_up(query):
+                res = "Hello I am Dave the AI, what can I do for you?"
+            elif "time" in query:
+                res = ai.action_time()
+            elif any(i in query for i in ["thank", "thanks"]):
+                res = np.random.choice(["you're welcome!", "anytime!", "no problem!", "cool!", "I'm here if you need me!", "mention not"])
+            elif any(i in query for i in ["exit", "close"]):
+                res = np.random.choice(["Tata", "Have a good day", "Bye", "Goodbye", "Hope to meet soon", "peace out!"])
+            else:
+                res = ai.text_to_text(query)
+            response = jsonify({"response": res})
+            response.headers.add("Access-Control-Allow-Origin", "*")  # Set the CORS header for all origins
+            return response
+        else:
+            return jsonify({"error": "No query provided"})
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
